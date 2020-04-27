@@ -18,6 +18,11 @@ export class HomeComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    await this.initConnection();
+    await this.initStream();
+  }
+
+  private async initConnection() {
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl("/stream")
       .build();
@@ -27,17 +32,16 @@ export class HomeComponent implements OnInit {
       this.cancellationToken.next();
       alert(`Disconnected! \n${error}`);
     });
-    await this.connection.send("VoiceStream", this.subject);
-    await this.initStream();
   }
 
   private async initStream(){
+    await this.connection.send("StartVoiceStream", this.subject);
     from(navigator.mediaDevices.getUserMedia({audio: true}))
       .subscribe({
         next: stream => {
 
           let context = new AudioContext();
-          let recorder = context.createScriptProcessor(4096, 1, 1);
+          let recorder = context.createScriptProcessor(1024, 1, 1);
           recorder.connect(context.destination);
 
           let  audioInput = context.createMediaStreamSource(stream);
@@ -51,8 +55,8 @@ export class HomeComponent implements OnInit {
             e.inputBuffer.getChannelData(0).forEach(b => {
               data.push(b)
             });
+            this.subject.next(data);
 
-            this.subject.next( Array.from(Array(15000).keys()));
           };
 
           recorder.addEventListener("audioprocess", voiceHandler);

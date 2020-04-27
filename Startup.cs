@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SignalRVoiceStream.Hubs;
+using SignalRVoiceStream.Services;
 
 namespace SignalRVoiceStream
 {
@@ -25,6 +26,7 @@ namespace SignalRVoiceStream
             // In production, the Angular files will be served from this directory
             services.AddSpaStaticFiles(configuration => { configuration.RootPath = "ClientApp/dist"; });
             services.AddSignalR();
+            services.AddSingleton<StreamManager>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

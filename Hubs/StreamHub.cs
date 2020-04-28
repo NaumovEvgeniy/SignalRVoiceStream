@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 using SignalRVoiceStream.Services;
@@ -17,9 +15,9 @@ namespace SignalRVoiceStream.Hubs
             _streamManager = streamManager;
         }
         
-        public IAsyncEnumerable<string> WatchStream(CancellationToken cancellationToken)
+        public IAsyncEnumerable<double[]> WatchStream(CancellationToken cancellationToken)
         {
-            return _streamManager.Subscribe(streamName, cancellationToken);
+            return _streamManager.Subscribe(cancellationToken);
         }
 
         public async Task StartVoiceStream(IAsyncEnumerable<double[]> stream)
@@ -32,7 +30,7 @@ namespace SignalRVoiceStream.Hubs
                 // Tell everyone about your stream!
                 await Clients.Others.SendAsync("NewStream", Context.ConnectionId);
 
-                // await streamTask;
+                await streamTask;
             }
             finally
             {

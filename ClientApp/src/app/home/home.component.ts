@@ -40,11 +40,13 @@ export class HomeComponent implements OnInit {
       .subscribe({
         next: stream => {
 
-          let context = new AudioContext();
+          let context = new AudioContext({
+            sampleRate: 3000
+          });
           let recorder = context.createScriptProcessor(1024, 1, 1);
           recorder.connect(context.destination);
 
-          let  audioInput = context.createMediaStreamSource(stream);
+          let audioInput = context.createMediaStreamSource(stream);
           audioInput.connect(recorder);
 
           const voiceHandler = e => {
@@ -56,8 +58,18 @@ export class HomeComponent implements OnInit {
               data.push(b)
             });
             this.subject.next(data);
-
           };
+
+
+          let buffer = context.createBuffer(1, 1024, context.sampleRate);
+          this.subscribe(buffer);
+
+          let source = context.createBufferSource();
+          source.buffer = buffer;
+          source.connect(context.destination);
+          source.loop = true;
+          source.start();
+
 
           recorder.addEventListener("audioprocess", voiceHandler);
           this.cancellationToken.subscribe(() => {
@@ -68,5 +80,21 @@ export class HomeComponent implements OnInit {
           alert("Microphone is disable");
         }
     })
+  }
+
+  private subscribe(buffer: AudioBuffer) {
+    this.connection.stream<number[]>("WatchStream")
+      .subscribe({
+        next(value: number[]): void {
+          let nowBuffering = buffer.getChannelData(0);
+          for(let i = 0; i < value.length; i++){
+            nowBuffering[i] = value[i];
+          }
+        },
+        error(err: any): void {
+        },
+        complete(): void {
+        }
+      })
   }
 }

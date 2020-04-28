@@ -24,6 +24,12 @@
         <None Include="ClientApp\src\stream.d.ts" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="TeamSpeak.Sdk, Version=0.1.6282.15613, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\ts\bin\TeamSpeak.Sdk.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
     <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">
         <!-- Ensure Node.js is installed -->
         <Exec Command="node --version" ContinueOnError="true">

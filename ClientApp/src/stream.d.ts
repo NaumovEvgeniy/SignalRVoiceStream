@@ -1,5 +1,3 @@
-declare module 'microphone-stream' {
-  export default class MicrophoneStream {
-
-  }
+declare namespace msr {
+  export class MediaStreamRecorder {}
 }

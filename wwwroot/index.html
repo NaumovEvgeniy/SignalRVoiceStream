@@ -18,13 +18,21 @@
 
 <div id="test"></div>
 <script type="text/javascript">
-    navigator.getUserMedia = navigator.getUserMedia ||navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-    var audioContext;
-    var myAudioBuffer;
-    var microphone;
-    var speakers;
-    if (navigator.getUserMedia) {
-    }
+    navigator.mediaDevices.getUserMedia({
+        audio: true
+    }).then(stream => {
+        let mediaRecorder = new MediaRecorder(stream);
+        
+        let reader = new FileReader();
+        reader.onload = () => {
+            console.log(reader.result.length)
+        }
+
+        mediaRecorder.addEventListener('dataavailable', data => {
+            reader.readAsBinaryString(data.data);
+        });
+        mediaRecorder.start(200);
+    })
 </script>
 </body>
 </html>

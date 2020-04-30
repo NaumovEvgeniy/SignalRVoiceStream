@@ -1,45 +1,70 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
+using SignalRVoiceStream.Pages;
 
 namespace SignalRVoiceStream.Services
 {
     public class StreamManager
     {
-        private readonly Channel<double[]> _channel;
+        private readonly Dictionary<string, Channel<string>> _streams = new Dictionary<string, Channel<string>>();
 
-        public StreamManager()
+        public async Task RunStreamAsync(string connectionId, IAsyncEnumerable<string> stream)
         {
-            _channel = Channel.CreateBounded<double[]>(2);
-        }
 
-        public async Task RunStreamAsync(string connectionId, IAsyncEnumerable<double[]> stream)
-        {
-            await Task.Yield();
+            // Add before yielding
+            // This fixes a race where we tell clients a new stream arrives before adding the stream
+            var channel = Channel.CreateBounded<string>(options: new BoundedChannelOptions(2));
+            _streams.Add(connectionId, channel);
 
-            await foreach (var item in stream)
+            try
             {
-                try
+                await foreach (var item in stream)
                 {
-                    await _channel.Writer.WriteAsync(item);
+                    var streamsExceptMine = GetStreamsExcept(connectionId);
+                    foreach (var otherChannel in streamsExceptMine)
+                    {
+                        await otherChannel.Writer.WriteAsync(item);
+                    }
                 }
-                catch
-                {
-                    // ignored
-                }
+            }
+            finally
+            {
+                RemoveStream(connectionId);
             }
         }
 
-        public IAsyncEnumerable<double[]> Subscribe(CancellationToken cancellationToken)
+        private List<Channel<string>> GetStreamsExcept(string connectionId)
         {
-            if (_channel == null)
+            return _streams
+                .Where(kv => kv.Key != connectionId)
+                .Select(kv => kv.Value)
+                .ToList();
+        }
+
+        public void RemoveStream(string connectionId)
+        {
+            _streams.Remove(connectionId);
+        }
+
+        public IAsyncEnumerable<string> Subscribe(string connectionId, CancellationToken cancellationToken)
+        {
+            if (!_streams.TryGetValue(connectionId, out var channel))
             {
-                throw new HubException("stream doesn't exist");
+                throw new HubException("");
             }
 
-            return _channel.Reader.ReadAllAsync(cancellationToken);
+            // Register for client closing stream, this token will always fire (handled by SignalR)
+            cancellationToken.Register(() =>
+            {
+                RemoveStream(connectionId);
+            });
+
+            return channel.Reader.ReadAllAsync(cancellationToken);
         }
     }
 }

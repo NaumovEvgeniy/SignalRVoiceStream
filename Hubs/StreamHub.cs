@@ -15,27 +15,14 @@ namespace SignalRVoiceStream.Hubs
             _streamManager = streamManager;
         }
         
-        public IAsyncEnumerable<double[]> WatchStream(CancellationToken cancellationToken)
+        public IAsyncEnumerable<string> WatchStream(CancellationToken cancellationToken)
         {
-            return _streamManager.Subscribe(cancellationToken);
+            return _streamManager.Subscribe(Context.ConnectionId, cancellationToken);
         }
 
-        public async Task StartVoiceStream(IAsyncEnumerable<double[]> stream)
+        public async Task StartVoiceStream(IAsyncEnumerable<string> stream)
         {
-            try
-            {
-
-                var streamTask = _streamManager.RunStreamAsync(Context.ConnectionId, stream);
-
-                // Tell everyone about your stream!
-                await Clients.Others.SendAsync("NewStream", Context.ConnectionId);
-
-                await streamTask;
-            }
-            finally
-            {
-                await Clients.Others.SendAsync("RemoveStream", Context.ConnectionId);
-            }
+            await _streamManager.RunStreamAsync(Context.ConnectionId, stream);
         } 
     }
 }

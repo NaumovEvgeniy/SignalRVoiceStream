@@ -22,12 +22,28 @@
         <None Remove="$(SpaRoot)**" />
         <None Include="$(SpaRoot)**" Exclude="$(SpaRoot)node_modules\**" />
         <None Include="ClientApp\src\stream.d.ts" />
+        <None Remove="audio-test\132336544196793040.wav" />
+        <None Remove="audio-test\132336544181765730.wav" />
+        <None Remove="audio-test\132336544176777490.wav" />
+        <None Remove="audio-test\132336544171915220.wav" />
+        <None Remove="audio-test\132336544161799680.wav" />
+        <None Remove="audio-test\132336544156789750.wav" />
+        <None Remove="audio-test\132336544151768220.wav" />
+        <None Remove="audio-test\132336544146879740.wav" />
+        <None Remove="audio-test\132336544141815400.wav" />
+        <None Remove="audio-test\132336544131940510.wav" />
     </ItemGroup>
 
     <ItemGroup>
       <Reference Include="TeamSpeak.Sdk, Version=0.1.6282.15613, Culture=neutral, PublicKeyToken=null">
         <HintPath>..\ts\bin\TeamSpeak.Sdk.dll</HintPath>
       </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="audio-test" />
+      <Folder Include="Hubs" />
+      <Folder Include="Services" />
     </ItemGroup>
 
     <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">

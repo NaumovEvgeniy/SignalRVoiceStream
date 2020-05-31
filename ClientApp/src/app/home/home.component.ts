@@ -1,148 +1,111 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import {from, Subject} from "rxjs";
+import { Component, OnInit} from '@angular/core';
 import * as signalR from "@microsoft/signalr";
-import {HubConnectionState} from "@microsoft/signalr";
-import MediaStreamRecorder from "msr";
+import { HubConnection} from "@microsoft/signalr";
+import { BehaviorSubject, from, Observable, Subscription } from "rxjs";
 
 declare var MediaRecorder: any;
 
 @Component({
-  selector: 'app-home',
-  templateUrl: './home.component.html',
+	selector: 'app-home',
+	templateUrl: './home.component.html',
 })
 export class HomeComponent implements OnInit {
 
-  @ViewChild("player", {static: false})
-  public audioPlayer: ElementRef<HTMLAudioElement>;
 
-  private cancellationToken = new Subject<void>();
-  private connection: signalR.HubConnection;
-  private subject = new signalR.Subject();
-  private audioContext = new AudioContext();
+	public userRecording = new BehaviorSubject(false);
 
-  private get record(): boolean{
-    return this.connection.state === HubConnectionState.Connected;
-  }
+	private connection: HubConnection;
+	private audioContext = new AudioContext();
+	private subject = new signalR.Subject();
+	private record$: Subscription;
 
-  async ngOnInit(): Promise<void> {
-    await this.initConnection();
-    await this.initStream();
-  }
+	async ngOnInit(): Promise<void> {
+		await this.initServerConnection();
+		await this.initStream();
+	}
 
-  private async initConnection() {
-    this.connection = new signalR.HubConnectionBuilder()
-      .withUrl("/stream")
-      .build();
+	private async initStream(){
+		await this.connection.send("StartVoiceStream", this.subject);
+		from(navigator.mediaDevices.getUserMedia({audio: true}))
+			.subscribe({
+				next: stream => {
 
-    await this.connection.start();
-    this.connection.onclose(error => {
-      this.cancellationToken.next();
-      alert(`Disconnected! \n${error}`);
-    });
-  }
+					let mr = new MediaRecorder(stream);
+					let reader = new FileReader();
+					reader.onload = async data => {
 
-  private async initStream(){
-    await this.connection.send("StartVoiceStream", this.subject);
-    from(navigator.mediaDevices.getUserMedia({audio: true}))
-      .subscribe({
-        next: stream => {
+						this.subject.next(reader.result)
+					}
 
-          let mediaRecorder = new MediaStreamRecorder(stream);
+					mr.ondataavailable = e => {
+						console.log(e.data.size)
+						reader.readAsBinaryString(e.data)
+					};
 
-          mediaRecorder.mimeType = 'audio/wav'; // check this line for audio/wav
+					let observeRecord = new Observable(subscriber => {
+						mr.start();
+						let interval = setInterval(() => {
+							mr.stop();
+							mr.start();
+						}, 500);
 
+						return () => {
+							mr.stop();
+							clearTimeout(interval);
+						}
+					})
+					this.userRecording.subscribe(needToRecord => {
+						if(needToRecord){
+							this.record$ = observeRecord.subscribe();
+							return;
+						}
+						this.record$ && this.record$.unsubscribe();
+					})
 
+					this.subscribe();
+				},
+				error: () => {
+					alert("Microphone is disable");
+				}
+			})
+	}
 
+	private async initServerConnection() {
+		this.connection = new signalR.HubConnectionBuilder()
+			.withUrl('/stream')
+			.build();
+		await this.connection.start();
+	}
 
-          let reader = new FileReader();
+	private str2ab(str) {
+		var buf = new ArrayBuffer(str.length);
+		var bufView = new Uint8Array(buf);
+		for (var i=0, strLen=str.length; i < strLen; i++) {
+			bufView[i] = str.charCodeAt(i);
+		}
+		return buf;
+	}
 
-          let buffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate, this.audioContext.sampleRate);
-          reader.onload = () => {
-          }
+	private subscribe() {
+		this.connection.stream<string>("WatchStream")
+			.subscribe({
+				next: async data => {
+					let buffer = this.str2ab(data);
+					let audioBuffer = await this.audioContext.decodeAudioData(buffer);
+					let source = this.audioContext.createBufferSource();
+					source.buffer = audioBuffer;
+					source.connect(this.audioContext.destination);
+					source.start();
+				},
+				error(err: any): void {
+				},
+				complete(): void {
+				}
+			})
+	}
 
-          mediaRecorder.ondataavailable = blob => {
-            reader.readAsArrayBuffer(blob);
-          };
-          mediaRecorder.start(500);
+	public toggleRecordButton(){
+		this.userRecording.next(!this.userRecording.value)
+	}
 
-          /*
-          let mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs="vorbis"'
-          });
-
-          let source = this.audioContext.createBufferSource();
-          // source.buffer = buffer;
-          source.connect(this.audioContext.destination);
-
-          let reader = new FileReader();
-
-          reader.onload = () => {
-            this.audioContext.decodeAudioData(reader.result as ArrayBuffer, res => {
-              console.log(res.duration)
-            })
-          }
-
-          console.log(mediaRecorder.stream)
-          mediaRecorder.addEventListener('dataavailable', data => {
-            // reader.readAsBinaryString(data.data);
-            reader.readAsArrayBuffer(data.data)
-            // this.audioPlayer.src = URL.createObjectURL(data.data)
-          });
-
-          // this.audioPlayer.nativeElement.d
-
-          mediaRecorder.start(500);
-
-          this.cancellationToken.subscribe(() => {
-            // clearInterval(interval);
-            mediaRecorder.stop();
-          })
-
-          this.subscribe();
-           */
-        },
-        error: () => {
-          alert("Microphone is disable");
-        }
-    })
-  }
-
-  private subscribe() {
-    this.connection.stream<string>("WatchStream")
-      .subscribe({
-        next: data => {
-
-
-          this.audioContext.decodeAudioData(reader.result as ArrayBuffer, res => {
-            var source = this.audioContext.createBufferSource();
-            source.buffer = res;
-            source.connect(this.audioContext.destination);
-            source.start(0, 0, res.duration)
-            // source.noteOn(0);
-          })
-
-
-          let blob = new Blob(this.stringToUint8Array(data), {
-            type: "audio/webm;codecs=opu"
-          })
-          // this.audioPlayer.nativeElement.src = URL.createObjectURL(blob);
-        },
-        error(err: any): void {
-        },
-        complete(): void {
-        }
-      })
-  }
-
-
-   stringToUint8Array(binary) {
-    let binLen, buffer, chars, i, _i;
-    binLen = binary.length;
-    buffer = new ArrayBuffer(binLen);
-    chars  = new Uint8Array(buffer);
-    for (i = _i = 0; 0 <= binLen ? _i < binLen : _i > binLen; i = 0 <= binLen ? ++_i : --_i) {
-      chars[i] = String.prototype.charCodeAt.call(binary, i);
-    }
-    return chars;
-  }
 }

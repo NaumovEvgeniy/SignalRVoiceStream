@@ -96,7 +96,7 @@ export class HomeComponent implements OnInit {
 					let buffer = this.str2ab(data);
 					let audioBuffer = await this.audioContext.decodeAudioData(buffer);
 					let source = this.audioContext.createBufferSource();
-					// source.playbackRate.value = audioBuffer.duration / this.recordChunkTime;
+					source.playbackRate.value = audioBuffer.duration / (this.recordChunkTime / 1000);
 					source.buffer = audioBuffer;
 					source.connect(this.audioContext.destination);
 					source.start();

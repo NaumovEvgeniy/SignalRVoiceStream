@@ -1,7 +1,8 @@
 import { Component, OnInit} from '@angular/core';
 import * as signalR from "@microsoft/signalr";
 import { HubConnection} from "@microsoft/signalr";
-import { BehaviorSubject, from, Observable, Subscription } from "rxjs";
+import { BehaviorSubject, from, fromEvent, Observable, Subscription } from "rxjs";
+import { filter } from "rxjs/operators";
 
 declare var MediaRecorder: any;
 
@@ -19,9 +20,12 @@ export class HomeComponent implements OnInit {
 	private subject = new signalR.Subject();
 	private record$: Subscription;
 
+	private recordChunkTime = 500;
+
 	async ngOnInit(): Promise<void> {
 		await this.initServerConnection();
 		await this.initStream();
+		this.recordByKey();
 	}
 
 	private async initStream(){
@@ -38,7 +42,6 @@ export class HomeComponent implements OnInit {
 					}
 
 					mr.ondataavailable = e => {
-						console.log(e.data.size)
 						reader.readAsBinaryString(e.data)
 					};
 
@@ -47,7 +50,7 @@ export class HomeComponent implements OnInit {
 						let interval = setInterval(() => {
 							mr.stop();
 							mr.start();
-						}, 500);
+						}, this.recordChunkTime);
 
 						return () => {
 							mr.stop();
@@ -55,7 +58,7 @@ export class HomeComponent implements OnInit {
 						}
 					})
 					this.userRecording.subscribe(needToRecord => {
-						if(needToRecord){
+						if(needToRecord && mr.state === 'inactive'){
 							this.record$ = observeRecord.subscribe();
 							return;
 						}
@@ -93,6 +96,7 @@ export class HomeComponent implements OnInit {
 					let buffer = this.str2ab(data);
 					let audioBuffer = await this.audioContext.decodeAudioData(buffer);
 					let source = this.audioContext.createBufferSource();
+					// source.playbackRate.value = audioBuffer.duration / this.recordChunkTime;
 					source.buffer = audioBuffer;
 					source.connect(this.audioContext.destination);
 					source.start();
@@ -108,4 +112,20 @@ export class HomeComponent implements OnInit {
 		this.userRecording.next(!this.userRecording.value)
 	}
 
+	private recordByKey() {
+
+		['keydown', 'keyup'].forEach(eventName => {
+			fromEvent<KeyboardEvent>(document, eventName)
+				.pipe(
+					this.getFilterForKey("ControlLeft")
+				)
+				.subscribe((e) => {
+					this.userRecording.next(eventName === 'keydown');
+				})
+		})
+	}
+
+	private getFilterForKey<T extends KeyboardEvent>(keyCode: string){
+		return filter<T>(e => e.code === keyCode);
+	}
 }
